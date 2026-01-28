@@ -28,7 +28,3 @@ A premium, canvas-based image processing tool that converts photos into high-con
 2. Open `index.html` in any modern web browser.
 3. Drag an image onto the processor or click **Upload Image**.
 4. Adjust filters and download your result!
-
-## Author
-
-- **tryankita** (<try.ankitasharma@gmail.com>)
