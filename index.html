@@ -680,7 +680,18 @@
 
 
     <script>
+        let audioCtx = null;
         let activePrimary = '#10b981';
+        function playDigitalSound(freq = 440, type = 'sine', duration = 0.1) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
         const rainCanvas = document.getElementById('matrix-rain-canvas');
         const rCtx = rainCanvas.getContext('2d');
         let columns = [];
@@ -763,16 +774,17 @@
         let currentFilter = 'binary';
         let isLive = false;
 
-        uploadTrigger.addEventListener('click', () => imageInput.click());
-        cameraTrigger.addEventListener('click', () => startCamera());
-        copyBtn.addEventListener('click', () => copyToClipboard());
-        downloadTxtBtn.addEventListener('click', () => downloadTextFile());
+        uploadTrigger.addEventListener('click', () => { playDigitalSound(880, 'sine', 0.05); imageInput.click(); });
+        cameraTrigger.addEventListener('click', () => { playDigitalSound(660, 'square', 0.1); startCamera(); });
+        copyBtn.addEventListener('click', () => { playDigitalSound(1200, 'sine', 0.2); copyToClipboard(); });
+        downloadTxtBtn.addEventListener('click', () => { playDigitalSound(550, 'square', 0.1); downloadTextFile(); });
 
         colorBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 colorBtns.forEach(b => b.style.border = '2px solid transparent');
                 btn.style.border = '2px solid white';
                 activePrimary = btn.dataset.color;
+                playDigitalSound(1500, 'sine', 0.02);
                 document.body.style.setProperty('--primary', activePrimary);
                 document.body.style.setProperty('--primary-glow', activePrimary + '33'); // 20% opacity hex
                 processImage();
@@ -812,6 +824,7 @@
 
         filterBtns.forEach(btn => {
             btn.addEventListener('click', () => {
+                playDigitalSound(1000, 'sine', 0.03);
                 filterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentFilter = btn.dataset.filter;
