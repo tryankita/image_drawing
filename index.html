@@ -514,6 +514,10 @@
 
             .hero-title {
                 font-size: 2.2rem;
+                background: linear-gradient(to right, var(--text), var(--primary));
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
             }
 
             nav {
@@ -528,11 +532,32 @@
                 padding: 1rem;
             }
 
+            .hero-subtitle {
+                font-size: 1rem;
+                padding: 0 1rem;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
             .controls-panel {
                 flex-direction: column;
                 align-items: stretch;
                 padding: 1.2rem;
                 gap: 1.5rem;
+            }
+
+            footer {
+                flex-direction: column;
+                gap: 2rem;
+                text-align: center;
+            }
+
+            .footer-links {
+                justify-content: center;
+                width: 100%;
             }
         }
     </style>
@@ -559,7 +584,7 @@
 
     <section class="hero-section" id="hero">
         <main class="container">
-            <h1 style="font-family: monospace; letter-spacing: 0.1em;">BINARY.SRC</h1>
+            <h1 id="hero-title" style="font-family: monospace; letter-spacing: 0.1em;">BINARY.SRC</h1>
             <p>Convert your photos into high-contrast digital art. 0s and 1s, matrix-style grids, and binary filters.
             </p>
             <button class="cta-button" id="upload-trigger">
@@ -607,6 +632,10 @@
                 <button class="cta-button" id="download-btn"
                     style="width: 100%; padding: 0.8rem; font-size: 0.9rem; margin-bottom: 0.5rem;">
                     💾 Download Result
+                </button>
+                <button class="cta-button" id="download-txt-btn"
+                    style="width: 100%; padding: 0.8rem; font-size: 0.9rem; margin-bottom: 0.5rem; background: var(--glass); border: 1px solid var(--glass-border);">
+                    📄 Download Data (.txt)
                 </button>
                 <button class="cta-button" id="copy-btn"
                     style="width: 100%; padding: 0.8rem; font-size: 0.9rem; background: var(--glass); border: 1px solid var(--glass-border);">
@@ -682,7 +711,24 @@
             glow.style.setProperty('--x', e.clientX + 'px');
             glow.style.setProperty('--y', e.clientY + 'px');
         });
-
+        const titleEl = document.getElementById('hero-title');
+        function scrambleText(element) {
+            const originalText = element.innerText;
+            let frame = 0;
+            const scrambleChars = "!<>-_\\/[]{}—=+*^?#________";
+            const interval = setInterval(() => {
+                element.innerHTML = originalText.split('').map((char, i) => {
+                    if (char === ' ') return char;
+                    if (frame > i * 3) return char;
+                    const randomChar = scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+                    return `<span style="color: var(--primary); opacity: 0.8">${randomChar}</span>`;
+                }).join('');
+                if (frame > originalText.length * 3) clearInterval(interval);
+                frame++;
+            }, 30);
+        }
+        scrambleText(titleEl);
+        titleEl.addEventListener('mouseover', () => scrambleText(titleEl));
 
         // Image Processing Logic
         const uploadTrigger = document.getElementById('upload-trigger');
@@ -699,6 +745,7 @@
         const cameraTrigger = document.getElementById('camera-trigger');
         const cameraFeed = document.getElementById('camera-feed');
         const copyBtn = document.getElementById('copy-btn');
+        const downloadTxtBtn = document.getElementById('download-txt-btn');
         const colorBtns = document.querySelectorAll('.color-btn');
 
         // Theme Persistence
@@ -719,6 +766,7 @@
         uploadTrigger.addEventListener('click', () => imageInput.click());
         cameraTrigger.addEventListener('click', () => startCamera());
         copyBtn.addEventListener('click', () => copyToClipboard());
+        downloadTxtBtn.addEventListener('click', () => downloadTextFile());
 
         colorBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -878,6 +926,13 @@
                 copyBtn.textContent = '✅ Copied!';
                 setTimeout(() => copyBtn.innerHTML = originalText, 2000);
             });
+        }
+        function downloadTextFile() {
+            const blob = new Blob([generateTextGrid()], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `binary-art-${Date.now()}.txt`;
+            link.click();
         }
     </script>
     <footer>
