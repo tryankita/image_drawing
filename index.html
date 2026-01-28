@@ -22,6 +22,18 @@
             --text: #f0fdf4;
             --text-muted: #4ade80;
             --nav-bg: rgba(2, 6, 23, 0.8);
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.light-mode {
+            --bg: #f8fafc;
+            --text: #0f172a;
+            --text-muted: #475569;
+            --glass: rgba(15, 23, 42, 0.03);
+            --glass-border: rgba(15, 23, 42, 0.1);
+            --nav-bg: rgba(248, 250, 252, 0.8);
+            --primary: #10b981;
+            --primary-glow: rgba(16, 185, 129, 0.2);
         }
 
         * {
@@ -224,6 +236,40 @@
         .nav-cta:hover {
             transform: scale(1.05);
             box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .theme-toggle {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 0.5rem;
+            border-radius: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--primary);
+            transform: rotate(15deg);
+        }
+
+        .theme-toggle .sun {
+            display: none;
+        }
+
+        .theme-toggle .moon {
+            display: block;
+        }
+
+        body.light-mode .theme-toggle .sun {
+            display: block;
+        }
+
+        body.light-mode .theme-toggle .moon {
+            display: none;
         }
 
         @media (max-width: 768px) {
@@ -436,6 +482,10 @@
             <a href="#about">About</a>
             <a href="#work">Processor</a>
             <a href="#services">Services</a>
+            <button class="theme-toggle" id="theme-btn" aria-label="Toggle Theme">
+                <span class="moon">🌙</span>
+                <span class="sun">☀️</span>
+            </button>
             <button class="nav-cta">Get Started</button>
         </nav>
     </header>
@@ -537,6 +587,18 @@
         const thresholdValTxt = document.getElementById('threshold-val');
         const filterBtns = document.querySelectorAll('.filter-btn');
         const downloadBtn = document.getElementById('download-btn');
+        const themeBtn = document.getElementById('theme-btn');
+
+        // Theme Persistence
+        if (localStorage.getItem('theme') === 'light') {
+            document.body.classList.add('light-mode');
+        }
+
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('light-mode');
+            const isLight = document.body.classList.contains('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        });
 
         let originalImage = null;
         let currentFilter = 'binary';
