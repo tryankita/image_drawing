@@ -623,6 +623,16 @@
                     </div>
                 </div>
                 <div class="control-group">
+                    <span class="control-label">Density Mode</span>
+                    <div class="filter-buttons density-selectors"
+                        style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                        <button class="filter-btn" data-density="20">Low</button>
+                        <button class="filter-btn active" data-density="10">Mid</button>
+                        <button class="filter-btn" data-density="6">High</button>
+                        <button class="filter-btn" data-density="4">ULTRA</button>
+                    </div>
+                </div>
+                <div class="control-group">
                     <div style="display: flex; justify-content: space-between;">
                         <span class="control-label">Intensity / Threshold</span>
                         <span id="threshold-val" style="font-size: 0.8rem; font-family: monospace;">128</span>
@@ -692,13 +702,20 @@
             osc.connect(gain); gain.connect(audioCtx.destination);
             osc.start(); osc.stop(audioCtx.currentTime + duration);
         }
+        function playTransmissionSound() {
+            for (let i = 0; i < 5; i++) setTimeout(() => playDigitalSound(1000 + i * 200, 'square', 0.05), i * 60);
+        }
         const rainCanvas = document.getElementById('matrix-rain-canvas');
         const rCtx = rainCanvas.getContext('2d');
         let columns = [];
         const initRain = () => {
             rainCanvas.width = window.innerWidth;
             rainCanvas.height = window.innerHeight;
-            columns = Array(Math.floor(rainCanvas.width / 20)).fill(0);
+            columns = Array(Math.floor(rainCanvas.width / 15)).fill(0).map(() => ({
+                y: Math.random() * rainCanvas.height,
+                s: Math.random() * 2 + 1,
+                z: Math.random() > 0.7 ? 1.5 : 0.8
+            }));
         };
         window.addEventListener('resize', initRain);
         initRain();
@@ -708,10 +725,15 @@
             rCtx.fillRect(0, 0, rainCanvas.width, rainCanvas.height);
             rCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--primary').trim();
             rCtx.font = "15px monospace";
-            columns.forEach((y, i) => {
+            columns.forEach((col, i) => {
                 const char = chars[Math.floor(Math.random() * chars.length)];
-                rCtx.fillText(char, i * 20, y);
-                columns[i] = y > rainCanvas.height || Math.random() > 0.95 ? 0 : y + 20;
+                rCtx.font = `${Math.floor(15 * col.z)}px monospace`;
+                rCtx.fillStyle = col.z > 1 ? activePrimary : activePrimary + '33';
+                rCtx.shadowBlur = col.z > 1 ? 8 : 0;
+                rCtx.shadowColor = activePrimary;
+                rCtx.fillText(char, i * 15, col.y);
+                rCtx.shadowBlur = 0;
+                col.y = col.y > rainCanvas.height ? -20 : col.y + col.s * 5;
             });
             requestAnimationFrame(drawRain);
         }
@@ -758,6 +780,7 @@
         const copyBtn = document.getElementById('copy-btn');
         const downloadTxtBtn = document.getElementById('download-txt-btn');
         const colorBtns = document.querySelectorAll('.color-btn');
+        const densityBtns = document.querySelectorAll('.density-selectors .filter-btn');
 
         // Theme Persistence
         if (localStorage.getItem('theme') === 'dark') {
@@ -765,6 +788,7 @@
         }
 
         themeBtn.addEventListener('click', () => {
+            playDigitalSound(300, 'sine', 0.1);
             document.body.classList.toggle('dark-mode');
             const isDark = document.body.classList.contains('dark-mode');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -772,12 +796,23 @@
 
         let originalImage = null;
         let currentFilter = 'binary';
+        let currentDensity = 10;
         let isLive = false;
 
         uploadTrigger.addEventListener('click', () => { playDigitalSound(880, 'sine', 0.05); imageInput.click(); });
         cameraTrigger.addEventListener('click', () => { playDigitalSound(660, 'square', 0.1); startCamera(); });
-        copyBtn.addEventListener('click', () => { playDigitalSound(1200, 'sine', 0.2); copyToClipboard(); });
-        downloadTxtBtn.addEventListener('click', () => { playDigitalSound(550, 'square', 0.1); downloadTextFile(); });
+        copyBtn.addEventListener('click', () => { playTransmissionSound(); copyToClipboard(); });
+        downloadTxtBtn.addEventListener('click', () => { playTransmissionSound(); downloadTextFile(); });
+
+        densityBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                densityBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDensity = parseInt(btn.dataset.density);
+                playDigitalSound(2000 - currentDensity * 50, 'sine', 0.05);
+                processImage();
+            });
+        });
 
         colorBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -792,6 +827,7 @@
         });
 
         downloadBtn.addEventListener('click', () => {
+            playTransmissionSound();
             const link = document.createElement('a');
             link.download = 'binary-art.png';
             link.href = canvas.toDataURL();
@@ -870,7 +906,7 @@
                     data[i + 2] = Math.floor(data[i + 2] / (threshold / 2 + 1)) * (threshold / 2 + 1);
                 }
             } else if (currentFilter === 'data') {
-                const fontSize = 10;
+                const fontSize = currentDensity;
                 ctx.font = `bold ${fontSize}px monospace`;
                 ctx.textBaseline = 'top';
                 ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg');
@@ -918,7 +954,7 @@
             requestAnimationFrame(processCameraFrame);
         }
         function generateTextGrid() {
-            const gridSize = 12;
+            const gridSize = currentDensity;
             let output = "";
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
