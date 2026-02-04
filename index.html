@@ -983,7 +983,8 @@
                 </button>
             </div>
             <input type="file" id="image-input" accept="image/*" style="display: none;">
-            <video id="camera-feed" style="display: none;" autoplay playsinline></video>
+            <video id="camera-feed" style="position: absolute; opacity: 0; pointer-events: none; z-index: -1;" autoplay
+                playsinline muted></video>
 
             <div class="preview-container" id="preview-wrapper">
                 <canvas id="main-canvas"></canvas>
@@ -1301,8 +1302,11 @@
             if (!originalImage && !isLive) return;
 
             const source = isLive ? cameraFeed : originalImage;
-            canvas.width = source.videoWidth || source.width;
-            canvas.height = source.videoHeight || source.height;
+            const w = source.videoWidth || source.width;
+            const h = source.videoHeight || source.height;
+            if (!w || !h) return; // Skip if video not ready
+            canvas.width = w;
+            canvas.height = h;
             ctx.drawImage(source, 0, 0);
 
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1357,14 +1361,47 @@
 
         async function startCamera() {
             if (isLive) { stopCamera(); return; }
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            cameraFeed.srcObject = stream;
-            isLive = true;
-            cameraTrigger.textContent = '❌ Stop Camera';
-            cameraTrigger.classList.add('active');
-            previewWrapper.style.display = 'block';
-            controls.style.display = 'flex';
-            requestAnimationFrame(processCameraFrame);
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('Camera not supported. Please use HTTPS or localhost.');
+                return;
+            }
+            try {
+                console.log('Requesting camera access...');
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
+                        }
+                    });
+                } catch (e) {
+                    console.log('Rear camera failed, trying front camera...');
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
+                        }
+                    });
+                }
+                console.log('Got stream:', stream);
+                cameraFeed.srcObject = stream;
+                cameraFeed.addEventListener('playing', function onPlaying() {
+                    cameraFeed.removeEventListener('playing', onPlaying);
+                    console.log('Video playing, width:', cameraFeed.videoWidth);
+                    isLive = true;
+                    cameraFeed.playsInline = true;
+                    cameraTrigger.textContent = '❌ Stop Camera';
+                    cameraTrigger.classList.add('active');
+                    previewWrapper.style.display = 'block';
+                    controls.style.display = 'flex';
+                    requestAnimationFrame(processCameraFrame);
+                });
+                cameraFeed.play();
+            } catch (err) {
+                alert('Camera access denied or not available: ' + err.message);
+            }
         }
 
         function stopCamera() {
