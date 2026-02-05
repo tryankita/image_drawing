@@ -14,6 +14,10 @@ A premium, canvas-based image processing tool that converts photos into high-con
 - **Theme Engine**: Persistent Dark/Light mode toggle with "Digital Paper" vs "Cyber Green" skins.
 - **Export Result**: One-click PNG download for generated art.
 - **Premium UI**: Glassmorphism panels, scanline overlays, and responsive design.
+- **Mobile Optimized**: Fully responsive with touch-friendly controls and hamburger menu navigation.
+- **Camera Support**:
+  - **Live Stream**: Real-time webcam processing with performance optimization.
+  - **Native Capture**: Direct integration with mobile device cameras for high-quality shots.
 
 ## Technology Stack
 

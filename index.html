@@ -593,12 +593,97 @@
             cursor: pointer;
         }
 
+
         /* Services Section */
-        .services-section {
+        .services-section,
+        .about-section {
             padding: 100px 10%;
             background: rgba(255, 255, 255, 0.01);
             position: relative;
         }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            align-items: center;
+        }
+
+        .about-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            font-family: monospace;
+            background: linear-gradient(to right, var(--text), var(--primary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .about-content p {
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .tech-stack {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+
+        .tech-badge {
+            padding: 0.5rem 1rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-family: monospace;
+            transition: all 0.3s ease;
+        }
+
+        .tech-badge:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .about-visual {
+            position: relative;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--glass-border);
+            border-left: 3px solid var(--primary);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #a5b4fc;
+            overflow-x: auto;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+            transform: rotate(-2deg);
+            transition: transform 0.3s ease;
+        }
+
+        .code-block:hover {
+            transform: rotate(0deg) scale(1.02);
+        }
+
+        @media (max-width: 900px) {
+            .about-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .about-visual {
+                order: -1;
+            }
+        }
+
 
         .services-grid {
             display: grid;
@@ -943,6 +1028,7 @@
         <nav>
             <a href="#hero">Processor</a>
             <a href="#services">Capabilities</a>
+            <a href="#about">About</a>
             <button class="theme-toggle" id="theme-btn" aria-label="Toggle Theme">
                 <span class="moon">🌙</span>
                 <span class="sun">☀️</span>
@@ -960,6 +1046,7 @@
     <nav class="mobile-nav" id="mobile-nav">
         <a href="#hero" class="mobile-nav-link">Processor</a>
         <a href="#services" class="mobile-nav-link">Capabilities</a>
+        <a href="#about" class="mobile-nav-link">About</a>
         <button class="theme-toggle" id="mobile-theme-btn" aria-label="Toggle Theme">
             <span class="moon">🌙</span>
             <span class="sun">☀️</span>
@@ -983,6 +1070,7 @@
                 </button>
             </div>
             <input type="file" id="image-input" accept="image/*" style="display: none;">
+            <input type="file" id="native-camera-input" accept="image/*" capture="environment" style="display: none;">
             <video id="camera-feed" style="position: absolute; opacity: 0; pointer-events: none; z-index: -1;" autoplay
                 playsinline muted></video>
 
@@ -1073,6 +1161,44 @@
                 <h3>Artisan Export</h3>
                 <p>Seamlessly save your generated art as high-quality PNG files, ready for digital deployment or
                     physical print.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="about-section" id="about">
+        <div class="about-grid">
+            <div class="about-content">
+                <h2>PROTOCOL.ABOUT</h2>
+                <p><strong>BINARY.SRC</strong> is a high-precision digital art protocol designed to deconstruct visual
+                    data into its fundamental binary components. By sampling luminosity across custom grids, we
+                    transform organic imagery into structured mathematical abstractions.</p>
+                <p>Unlike cloud-based converters, this tool runs entirely in your browser using the HTML5 Canvas API.
+                    Your images are processed locally within your device's memory—ensuring complete privacy and zero
+                    latency.</p>
+
+                <div class="tech-stack">
+                    <span class="tech-badge">HTML5 Canvas</span>
+                    <span class="tech-badge">Vanilla JS</span>
+                    <span class="tech-badge">Pixel Manipulation</span>
+                    <span class="tech-badge">Local Processing</span>
+                </div>
+            </div>
+            <div class="about-visual">
+                <div class="code-block">
+                    <span style="color: #c084fc">const</span> <span style="color: #60a5fa">processImage</span> = (data)
+                    => {
+                    <span style="color: #c084fc">for</span> (<span style="color: #c084fc">let</span> i = 0; i <
+                        data.length; i+=4) { <span style="color: #818cf8">// Luminance calculation</span>
+                        <span style="color: #c084fc">const</span> avg = (r+g+b) / 3;
+                        <span style="color: #c084fc">const</span> val = avg > threshold ? 255 : 0;
+
+                        <span style="color: #818cf8">// Binary transformation</span>
+                        data[i] = val; <span style="color: #818cf8">// R</span>
+                        data[i+1] = val; <span style="color: #818cf8">// G</span>
+                        data[i+2] = val; <span style="color: #818cf8">// B</span>
+                        }
+                        }
+                </div>
             </div>
         </div>
     </section>
@@ -1419,6 +1545,54 @@
             processImage();
             requestAnimationFrame(processCameraFrame);
         }
+
+        // Native Camera Logic
+        const nativeCameraInput = document.getElementById('native-camera-input');
+
+        nativeCameraInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    stopCamera(); // Stop live camera if running
+                    originalImage = img;
+                    previewWrapper.style.display = 'block';
+                    controls.style.display = 'flex';
+                    processImage();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Add "Take Photo" button to UI dynamically
+        const heroButtons = document.querySelector('.hero-buttons');
+        const takePhotoBtn = document.createElement('button');
+        takePhotoBtn.className = 'cta-button secondary';
+        takePhotoBtn.id = 'native-camera-trigger';
+        takePhotoBtn.style.cssText = 'background: var(--glass); border: 1px solid var(--glass-border); margin-top: 1rem; width: 100%;';
+        takePhotoBtn.innerHTML = '<span style="margin-right: 8px;">📸</span> Device Camera';
+
+        // Insert after the button group on mobile or append to it
+        if (window.innerWidth <= 768) {
+            heroButtons.parentNode.insertBefore(takePhotoBtn, heroButtons.nextSibling);
+            // Wrap in a div to manage spacing better if needed, or just let it sit below
+            takePhotoBtn.style.marginTop = "1rem";
+        } else {
+            // On desktop, maybe just add another button or keep it hidden if strictly for mobile? 
+            // Let's add it to the hero-buttons for visibility
+            takePhotoBtn.style.marginTop = "0";
+            takePhotoBtn.style.background = "var(--glass)";
+            heroButtons.appendChild(takePhotoBtn);
+        }
+
+        takePhotoBtn.addEventListener('click', () => {
+            playDigitalSound(660, 'square', 0.1);
+            nativeCameraInput.click();
+        });
         function generateTextGrid() {
             const gridSize = currentDensity;
             let output = "";
@@ -1451,13 +1625,9 @@
         }
     </script>
     <footer>
-        <div id="about"
-            style="width: 100%; margin-bottom: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 2rem;">
-            <h3 style="font-family: monospace; margin-bottom: 1rem;">PROTOCOL.ABOUT</h3>
-            <p style="font-size: 0.9rem; max-width: 800px; margin-bottom: 0;">BINARY.SRC is a high-precision digital art
-                protocol designed to deconstruct visual data into its fundamental binary components. By sampling
-                luminosity across custom grids, we transform organic imagery into structured mathematical abstractions.
-            </p>
+        <div class="footer-content"
+            style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <p style="font-size: 0.9rem; color: var(--text-muted);">© 2026 BINARY.SRC. All systems operational.</p>
         </div>
         <div class="logo" style="font-family: monospace; font-size: 1.2rem;">BINARY</div>
         <div class="footer-links">
