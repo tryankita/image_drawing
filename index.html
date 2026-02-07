@@ -602,6 +602,81 @@
             position: relative;
         }
 
+        /* Drag and Drop Overlay */
+        .drop-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(16, 185, 129, 0.1);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            border: 4px dashed var(--primary);
+            pointer-events: none;
+        }
+
+        .drop-overlay.active {
+            display: flex;
+        }
+
+        .drop-message {
+            font-size: 2rem;
+            color: var(--primary);
+            font-weight: 800;
+            font-family: monospace;
+            background: var(--bg);
+            padding: 2rem 4rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Checkbox Style */
+        .toggle-control {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .toggle-checkbox {
+            appearance: none;
+            width: 40px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid var(--glass-border);
+        }
+
+        .toggle-checkbox::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 14px;
+            height: 14px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-checkbox:checked {
+            background: var(--primary-glow);
+            border-color: var(--primary);
+        }
+
+        .toggle-checkbox:checked::after {
+            transform: translateX(20px);
+            background: var(--primary);
+        }
+
         .about-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1056,6 +1131,10 @@
 
     <div class="bg-gradient"></div>
 
+    <div class="drop-overlay" id="drop-overlay">
+        <div class="drop-message">◈ DROP IMAGE TO PROCESS ◈</div>
+    </div>
+
     <section class="hero-section" id="hero">
         <main class="container">
             <h1 id="hero-title" style="font-family: monospace; letter-spacing: 0.1em;">BINARY.SRC</h1>
@@ -1115,7 +1194,24 @@
                         <span id="threshold-val" style="font-size: 0.8rem; font-family: monospace;">128</span>
                     </div>
                     <input type="range" id="threshold-slider" min="0" max="255" value="128">
+
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <label class="toggle-control">
+                            <input type="checkbox" id="dither-check" class="toggle-checkbox">
+                            <span class="control-label" style="margin-bottom: 0; cursor: pointer;">Dither</span>
+                        </label>
+
+                        <label class="toggle-control" id="ascii-control" style="display: none;">
+                            <input type="checkbox" id="ascii-check" class="toggle-checkbox">
+                            <span class="control-label" style="margin-bottom: 0; cursor: pointer;">ASCII Mode</span>
+                        </label>
+                    </div>
                 </div>
+
+                <button class="cta-button" id="glitch-btn"
+                    style="width: 100%; margin-bottom: 0.5rem; background: #ef4444; border: none; color: white;">
+                    ⚡ GLITCH EFFECT
+                </button>
                 <button class="cta-button" id="download-btn"
                     style="width: 100%; padding: 0.8rem; font-size: 0.9rem; margin-bottom: 0.5rem;">
                     💾 Download Result
@@ -1128,6 +1224,24 @@
                     style="width: 100%; padding: 0.8rem; font-size: 0.9rem; background: var(--glass); border: 1px solid var(--glass-border);">
                     📋 Copy Data (0-1)
                 </button>
+
+                <!-- Steganography Panel -->
+                <div class="control-group"
+                    style="margin-top: 1rem; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
+                    <span class="control-label" style="color: #ef4444;">🔒 SECRET PROTOCOL (LSB)</span>
+                    <input type="text" id="stego-input" placeholder="Enter secret message..."
+                        style="width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: var(--text); border-radius: 0.5rem; font-family: monospace; margin-bottom: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="cta-button" id="encode-btn"
+                            style="flex: 1; padding: 0.6rem; font-size: 0.8rem; background: var(--glass); border: 1px solid var(--primary);">
+                            🔒 Encode
+                        </button>
+                        <button class="cta-button" id="decode-btn"
+                            style="flex: 1; padding: 0.6rem; font-size: 0.8rem; background: var(--glass); border: 1px solid var(--text-muted);">
+                            🔓 Decode
+                        </button>
+                    </div>
+                </div>
             </div>
         </main>
     </section>
@@ -1296,10 +1410,68 @@
         const downloadTxtBtn = document.getElementById('download-txt-btn');
         const colorBtns = document.querySelectorAll('.color-btn');
         const densityBtns = document.querySelectorAll('.density-selectors .filter-btn');
+        const ditherCheck = document.getElementById('dither-check');
+        const asciiCheck = document.getElementById('ascii-check');
+        const asciiControl = document.getElementById('ascii-control');
+        const glitchBtn = document.getElementById('glitch-btn');
+        const dropOverlay = document.getElementById('drop-overlay');
+
+        const stegoInput = document.getElementById('stego-input');
+        const encodeBtn = document.getElementById('encode-btn');
+        const decodeBtn = document.getElementById('decode-btn');
+
+        // Drag and Drop Logic
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            document.body.addEventListener(eventName, () => dropOverlay.classList.add('active'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, () => dropOverlay.classList.remove('active'), false);
+        });
+
+        document.body.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            if (file && file.type.startsWith('image/')) {
+                playDigitalSound(1200, 'sine', 0.1);
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    stopCamera();
+                    originalImage = img;
+                    previewWrapper.style.display = 'block';
+                    controls.style.display = 'flex';
+                    processImage();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
 
         // Theme Persistence
-        if (localStorage.getItem('theme') === 'dark') {
-            document.body.classList.add('dark-mode');
+        try {
+            if (localStorage.getItem('theme') === 'dark') {
+                document.body.classList.add('dark-mode');
+            }
+        } catch (e) {
+            console.warn('LocalStorage access denied', e);
         }
 
         // Theme toggle for both desktop and mobile
@@ -1307,7 +1479,11 @@
             playDigitalSound(300, 'sine', 0.1);
             document.body.classList.toggle('dark-mode');
             const isDark = document.body.classList.contains('dark-mode');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            try {
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            } catch (e) {
+                console.warn('LocalStorage access denied', e);
+            }
         }
 
         themeBtn.addEventListener('click', toggleTheme);
@@ -1414,15 +1590,58 @@
             processImage();
         });
 
+        ditherCheck.addEventListener('change', () => {
+            playDigitalSound(600, 'sine', 0.05);
+            processImage();
+        });
+
+        asciiCheck.addEventListener('change', () => {
+            playDigitalSound(1500, 'square', 0.05);
+            processImage();
+        });
+
+        glitchBtn.addEventListener('click', () => {
+            playDigitalSound(100, 'sawtooth', 0.2);
+            playDigitalSound(800, 'sawtooth', 0.1);
+            triggerGlitch();
+        });
+
+        encodeBtn.addEventListener('click', () => {
+            const msg = stegoInput.value;
+            if (!msg) { alert("Enter a message first."); return; }
+            playDigitalSound(2000, 'square', 0.1);
+            encodeLSB(msg);
+        });
+
+        decodeBtn.addEventListener('click', () => {
+            playDigitalSound(1200, 'sine', 0.1);
+            const msg = decodeLSB();
+            if (msg) {
+                alert("🔓 DECODED MESSAGE:\n\n" + msg);
+            } else {
+                alert("❌ No hidden message found in this image.");
+            }
+        });
+
         filterBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 playDigitalSound(1000, 'sine', 0.03);
                 filterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentFilter = btn.dataset.filter;
+
+                // Show ASCII toggle only for Data filter
+                if (currentFilter === 'data') {
+                    asciiControl.style.display = 'flex';
+                } else {
+                    asciiControl.style.display = 'none';
+                }
+
                 processImage();
             });
         });
+
+
 
         function processImage() {
             if (!originalImage && !isLive) return;
@@ -1440,20 +1659,60 @@
             const threshold = parseInt(thresholdSlider.value);
 
             if (currentFilter === 'binary') {
+                const useDither = ditherCheck.checked;
+
+                // If dithering is enabled, we need to work on a copy of the grayscale data to propagate errors correctly
+                // Create a 2D array for easier error prop
+                let gray = new Float32Array(canvas.width * canvas.height);
+
+                // 1. Grayscale Pass
                 for (let i = 0; i < data.length; i += 4) {
-                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                    const val = avg >= threshold ? 255 : 0;
-                    data[i] = data[i + 1] = data[i + 2] = val;
+                    gray[i / 4] = (data[i] + data[i + 1] + data[i + 2]) / 3;
                 }
-                const r = parseInt(activePrimary.slice(1, 3), 16);
-                const g = parseInt(activePrimary.slice(3, 5), 16);
-                const b = parseInt(activePrimary.slice(5, 7), 16);
+
+                // 2. Dithering Pass (Floyd-Steinberg)
+                // Error diffusion:
+                //     X   7
+                // 3   5   1
+                // ( / 16 )
+
+                const w = canvas.width;
+                const h = canvas.height;
+
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        if (useDither) {
+                            const idx = y * w + x;
+                            const oldPixel = gray[idx];
+                            const newPixel = oldPixel < threshold ? 0 : 255;
+                            gray[idx] = newPixel;
+
+                            const quantError = oldPixel - newPixel;
+
+                            if (x + 1 < w) gray[y * w + (x + 1)] += quantError * 7 / 16;
+                            if (x - 1 >= 0 && y + 1 < h) gray[(y + 1) * w + (x - 1)] += quantError * 3 / 16;
+                            if (y + 1 < h) gray[(y + 1) * w + x] += quantError * 5 / 16;
+                            if (x + 1 < w && y + 1 < h) gray[(y + 1) * w + (x + 1)] += quantError * 1 / 16;
+                        } else {
+                            // Simple Threshold
+                            const idx = y * w + x;
+                            gray[idx] = gray[idx] >= threshold ? 255 : 0;
+                        }
+                    }
+                }
+
+                // 3. Coloring Pass
+                const rVal = parseInt(activePrimary.slice(1, 3), 16);
+                const gVal = parseInt(activePrimary.slice(3, 5), 16);
+                const bVal = parseInt(activePrimary.slice(5, 7), 16);
+
                 for (let i = 0; i < data.length; i += 4) {
-                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                    const val = avg >= threshold ? avg / 255 : 0;
-                    data[i] = r * val;
-                    data[i + 1] = g * val;
-                    data[i + 2] = b * val;
+                    const val = gray[i / 4];
+                    // Normalize 0-255 to 0-1 for coloring
+                    const norm = val / 255;
+                    data[i] = rVal * norm;
+                    data[i + 1] = gVal * norm;
+                    data[i + 2] = bVal * norm;
                 }
             } else if (currentFilter === 'pixel') {
                 // Pixelate is handled differently, usually by scaling down and up
@@ -1471,10 +1730,26 @@
                 ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg');
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = activePrimary;
+
+                const useAscii = asciiCheck.checked;
+                // Standard ASCII ramp from dark to light
+                const asciiChars = " .:-=+*#%@"; // 10 chars
+
                 for (let y = 0; y < canvas.height; y += fontSize) {
                     for (let x = 0; x < canvas.width; x += fontSize) {
                         const i = (Math.floor(y) * canvas.width + Math.floor(x)) * 4;
-                        const char = (data[i] + data[i + 1] + data[i + 2]) / 3 >= threshold ? '1' : '0';
+                        const r = data[i]; const g = data[i + 1]; const b = data[i + 2];
+                        const avg = (r + g + b) / 3;
+
+                        let char = '';
+                        if (useAscii) {
+                            // Map 0-255 to 0-9
+                            const charIdx = Math.floor(avg / 25.5);
+                            char = asciiChars[Math.min(charIdx, asciiChars.length - 1)];
+                        } else {
+                            char = avg >= threshold ? '1' : '0';
+                        }
+
                         ctx.fillText(char, x, y);
                     }
                 }
@@ -1482,6 +1757,59 @@
             }
 
             ctx.putImageData(imageData, 0, 0);
+        }
+
+        function triggerGlitch() {
+            if (!originalImage && !isLive) return;
+
+            const intensity = 20;
+            const h = canvas.height;
+            const w = canvas.width;
+
+            // Capture current state
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            const resultData = new Uint8ClampedArray(data);
+
+            // 1. RGB Shift
+            for (let i = 0; i < data.length; i += 4) {
+                // Shift Red channel left
+                let rIdx = i - (intensity * 4);
+                if (rIdx >= 0 && rIdx < data.length) {
+                    resultData[i] = data[rIdx];
+                }
+
+                // Shift Blue channel right
+                let bIdx = i + (intensity * 4);
+                if (bIdx >= 0 && bIdx < data.length) {
+                    resultData[i + 2] = data[bIdx + 2];
+                }
+            }
+
+            // 2. Horizontal Slicing
+            const numSlices = 10;
+            const sliceHeight = Math.floor(h / numSlices);
+
+            // We need to put the shifted RGB data into the canvas first to slice it efficiently? 
+            // Or just manipulate the array directly. Direct array manipulation is complex for row shifting.
+            // Let's draw the RGB shift first.
+            const shiftedImg = new ImageData(resultData, w, h);
+            ctx.putImageData(shiftedImg, 0, 0);
+
+            // Now do slices using drawImage for performance/simplicity
+            for (let i = 0; i < numSlices; i++) {
+                if (Math.random() > 0.5) {
+                    const shift = (Math.random() - 0.5) * 40; // Max 20px shift
+                    const sy = i * sliceHeight;
+                    // Draw a slice shifted
+                    ctx.drawImage(canvas, 0, sy, w, sliceHeight, shift, sy, w, sliceHeight);
+                }
+            }
+
+            // Reset after 300ms if live, otherwise it stays glitched till updated
+            if (isLive) {
+                setTimeout(() => processImage(), 300);
+            }
         }
 
 
@@ -1528,6 +1856,94 @@
             } catch (err) {
                 alert('Camera access denied or not available: ' + err.message);
             }
+        }
+
+        // --- STEGANOGRAPHY FUNCTIONS ---
+
+        function encodeLSB(message) {
+            // 1. Convert message to binary string
+            // Header: 16 bits for length
+            const binaryLength = message.length.toString(2).padStart(16, '0');
+
+            let binaryMsg = "";
+            for (let i = 0; i < message.length; i++) {
+                binaryMsg += message.charCodeAt(i).toString(2).padStart(8, '0');
+            }
+
+            const fullBinary = binaryLength + binaryMsg;
+            const requiredPixels = fullBinary.length;
+            const w = canvas.width;
+            const h = canvas.height;
+            const totalPixels = w * h;
+
+            if (requiredPixels > totalPixels) {
+                alert(`Message too long! Capacity: ${totalPixels} bits. Needed: ${requiredPixels} bits.`);
+                return;
+            }
+
+            // 2. Get image data
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+
+            // 3. Embed bits into Blue channel LSB
+            for (let i = 0; i < fullBinary.length; i++) {
+                const pixelIdx = i * 4; // 4 channels per pixel
+                // Clear LSB of Blue (index 2)
+                data[pixelIdx + 2] = (data[pixelIdx + 2] & 0xFE) | parseInt(fullBinary[i]);
+            }
+
+            // 4. Put data back and DOWNLOAD automatically (to save the secret)
+            ctx.putImageData(imageData, 0, 0);
+
+            const link = document.createElement('a');
+            link.download = `secret-binary-${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+
+            alert("🔒 Message encoded! Image downloaded.\nDrag this image back to decode it.");
+            stegoInput.value = ""; // Clear input
+        }
+
+        function decodeLSB() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+
+            // 1. Read Length Header (first 16 pixels)
+            let lengthBin = "";
+            for (let i = 0; i < 16; i++) {
+                const pixelIdx = i * 4;
+                const bit = data[pixelIdx + 2] & 1;
+                lengthBin += bit;
+            }
+
+            const msgLength = parseInt(lengthBin, 2);
+
+            // Sanity check: if length is huge or absurd, probably no message
+            if (msgLength === 0 || msgLength > (w * h - 16) / 8) {
+                return null;
+            }
+
+            // 2. Read Message Bits
+            let msgBin = "";
+            for (let i = 0; i < msgLength * 8; i++) {
+                const pixelIdx = (i + 16) * 4;
+                const bit = data[pixelIdx + 2] & 1;
+                msgBin += bit;
+            }
+
+            // 3. Convert Binary to Text
+            let message = "";
+            for (let i = 0; i < msgLength; i++) {
+                const byte = msgBin.substr(i * 8, 8);
+                message += String.fromCharCode(parseInt(byte, 2));
+            }
+
+            // Basic heuristic to check if it's readable text
+            // (Optional: check for unprintable chars to rule out noise)
+
+            return message;
         }
 
         function stopCamera() {
@@ -1594,15 +2010,34 @@
             nativeCameraInput.click();
         });
         function generateTextGrid() {
-            const gridSize = currentDensity;
-            let output = "";
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            if (!originalImage && !isLive) return "";
+
+            // Create a temporary canvas to process the source image directly
+            const tempCanvas = document.createElement('canvas');
+            const source = isLive ? cameraFeed : originalImage;
+            const w = source.videoWidth || source.width;
+            const h = source.videoHeight || source.height;
+
+            if (!w || !h) return "";
+
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.drawImage(source, 0, 0);
+
+            const imageData = tCtx.getImageData(0, 0, w, h);
             const data = imageData.data;
             const threshold = parseInt(thresholdSlider.value);
-            for (let y = 0; y < canvas.height; y += gridSize) {
-                for (let x = 0; x < canvas.width; x += gridSize) {
-                    const i = (Math.floor(y) * canvas.width + Math.floor(x)) * 4;
-                    output += (data[i] + data[i + 1] + data[i + 2]) / 3 >= threshold ? '1' : '0';
+            const gridSize = currentDensity;
+
+            let output = "";
+
+            for (let y = 0; y < h; y += gridSize) {
+                for (let x = 0; x < w; x += gridSize) {
+                    const i = (Math.floor(y) * w + Math.floor(x)) * 4;
+                    // Calculate luminance
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    output += avg >= threshold ? '1' : '0';
                 }
                 output += '\n';
             }
