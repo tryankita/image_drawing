@@ -2005,31 +2005,7 @@
             reader.readAsDataURL(file);
         });
 
-        // Add "Take Photo" button to UI dynamically
-        const heroButtons = document.querySelector('.hero-buttons');
-        const takePhotoBtn = document.createElement('button');
-        takePhotoBtn.className = 'cta-button secondary';
-        takePhotoBtn.id = 'native-camera-trigger';
-        takePhotoBtn.style.cssText = 'background: var(--glass); border: 1px solid var(--glass-border); margin-top: 1rem; width: 100%;';
-        takePhotoBtn.innerHTML = '<span style="margin-right: 8px;">📸</span> Device Camera';
-
-        // Insert after the button group on mobile or append to it
-        if (window.innerWidth <= 768) {
-            heroButtons.parentNode.insertBefore(takePhotoBtn, heroButtons.nextSibling);
-            // Wrap in a div to manage spacing better if needed, or just let it sit below
-            takePhotoBtn.style.marginTop = "1rem";
-        } else {
-            // On desktop, maybe just add another button or keep it hidden if strictly for mobile? 
-            // Let's add it to the hero-buttons for visibility
-            takePhotoBtn.style.marginTop = "0";
-            takePhotoBtn.style.background = "var(--glass)";
-            heroButtons.appendChild(takePhotoBtn);
-        }
-
-        takePhotoBtn.addEventListener('click', () => {
-            playDigitalSound(660, 'square', 0.1);
-            nativeCameraInput.click();
-        });
+        // Device camera button removed as per user request
         function generateTextGrid() {
             if (!originalImage && !isLive) return "";
 
