@@ -1762,11 +1762,14 @@
         function triggerGlitch() {
             if (!originalImage && !isLive) return;
 
+            // Re-process from original source so repeated clicks don't compound
+            processImage();
+
             const intensity = 20;
             const h = canvas.height;
             const w = canvas.width;
 
-            // Capture current state
+            // Capture clean state
             const imageData = ctx.getImageData(0, 0, w, h);
             const data = imageData.data;
             const resultData = new Uint8ClampedArray(data);
