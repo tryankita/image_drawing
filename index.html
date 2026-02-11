@@ -1673,7 +1673,14 @@
                     controls.style.display = 'flex';
                     processImage();
                 };
+                img.onerror = (err) => {
+                    console.error("Failed to load image", err);
+                    alert("Error loading image. Please try another file.");
+                };
                 img.src = event.target.result;
+
+                // Reset input so the same file can be selected again
+                e.target.value = '';
             };
             reader.readAsDataURL(file);
         });
@@ -1738,119 +1745,130 @@
 
 
         function processImage() {
-            if (!originalImage && !isLive) return;
+            try {
+                if (!originalImage && !isLive) return;
 
-            const source = isLive ? cameraFeed : originalImage;
-            const w = source.videoWidth || source.width;
-            const h = source.videoHeight || source.height;
-            if (!w || !h) return; // Skip if video not ready
-            canvas.width = w;
-            canvas.height = h;
-            ctx.drawImage(source, 0, 0);
+                const source = isLive ? cameraFeed : originalImage;
 
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            const threshold = parseInt(thresholdSlider.value);
+                // Robust width/height detection
+                const w = source.videoWidth || source.naturalWidth || source.width;
+                const h = source.videoHeight || source.naturalHeight || source.height;
 
-            if (currentFilter === 'binary') {
-                const useDither = ditherCheck.checked;
-
-                // If dithering is enabled, we need to work on a copy of the grayscale data to propagate errors correctly
-                // Create a 2D array for easier error prop
-                let gray = new Float32Array(canvas.width * canvas.height);
-
-                // 1. Grayscale Pass
-                for (let i = 0; i < data.length; i += 4) {
-                    gray[i / 4] = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                if (!w || !h || w === 0 || h === 0) {
+                    console.warn("Source has invalid dimensions:", w, h);
+                    return;
                 }
 
-                // 2. Dithering Pass (Floyd-Steinberg)
-                // Error diffusion:
-                //     X   7
-                // 3   5   1
-                // ( / 16 )
+                canvas.width = w;
+                canvas.height = h;
+                ctx.drawImage(source, 0, 0);
 
-                const w = canvas.width;
-                const h = canvas.height;
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                const threshold = parseInt(thresholdSlider.value);
 
-                for (let y = 0; y < h; y++) {
-                    for (let x = 0; x < w; x++) {
-                        if (useDither) {
-                            const idx = y * w + x;
-                            const oldPixel = gray[idx];
-                            const newPixel = oldPixel < threshold ? 0 : 255;
-                            gray[idx] = newPixel;
+                if (currentFilter === 'binary') {
+                    const useDither = ditherCheck.checked;
 
-                            const quantError = oldPixel - newPixel;
+                    // If dithering is enabled, we need to work on a copy of the grayscale data to propagate errors correctly
+                    // Create a 2D array for easier error prop
+                    let gray = new Float32Array(canvas.width * canvas.height);
 
-                            if (x + 1 < w) gray[y * w + (x + 1)] += quantError * 7 / 16;
-                            if (x - 1 >= 0 && y + 1 < h) gray[(y + 1) * w + (x - 1)] += quantError * 3 / 16;
-                            if (y + 1 < h) gray[(y + 1) * w + x] += quantError * 5 / 16;
-                            if (x + 1 < w && y + 1 < h) gray[(y + 1) * w + (x + 1)] += quantError * 1 / 16;
-                        } else {
-                            // Simple Threshold
-                            const idx = y * w + x;
-                            gray[idx] = gray[idx] >= threshold ? 255 : 0;
+                    // 1. Grayscale Pass
+                    for (let i = 0; i < data.length; i += 4) {
+                        gray[i / 4] = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    }
+
+                    // 2. Dithering Pass (Floyd-Steinberg)
+                    // Error diffusion:
+                    //     X   7
+                    // 3   5   1
+                    // ( / 16 )
+
+                    const w = canvas.width;
+                    const h = canvas.height;
+
+                    for (let y = 0; y < h; y++) {
+                        for (let x = 0; x < w; x++) {
+                            if (useDither) {
+                                const idx = y * w + x;
+                                const oldPixel = gray[idx];
+                                const newPixel = oldPixel < threshold ? 0 : 255;
+                                gray[idx] = newPixel;
+
+                                const quantError = oldPixel - newPixel;
+
+                                if (x + 1 < w) gray[y * w + (x + 1)] += quantError * 7 / 16;
+                                if (x - 1 >= 0 && y + 1 < h) gray[(y + 1) * w + (x - 1)] += quantError * 3 / 16;
+                                if (y + 1 < h) gray[(y + 1) * w + x] += quantError * 5 / 16;
+                                if (x + 1 < w && y + 1 < h) gray[(y + 1) * w + (x + 1)] += quantError * 1 / 16;
+                            } else {
+                                // Simple Threshold
+                                const idx = y * w + x;
+                                gray[idx] = gray[idx] >= threshold ? 255 : 0;
+                            }
                         }
                     }
-                }
 
-                // 3. Coloring Pass
-                const rVal = parseInt(activePrimary.slice(1, 3), 16);
-                const gVal = parseInt(activePrimary.slice(3, 5), 16);
-                const bVal = parseInt(activePrimary.slice(5, 7), 16);
+                    // 3. Coloring Pass
+                    const rVal = parseInt(activePrimary.slice(1, 3), 16);
+                    const gVal = parseInt(activePrimary.slice(3, 5), 16);
+                    const bVal = parseInt(activePrimary.slice(5, 7), 16);
 
-                for (let i = 0; i < data.length; i += 4) {
-                    const val = gray[i / 4];
-                    // Normalize 0-255 to 0-1 for coloring
-                    const norm = val / 255;
-                    data[i] = rVal * norm;
-                    data[i + 1] = gVal * norm;
-                    data[i + 2] = bVal * norm;
-                }
-            } else if (currentFilter === 'pixel') {
-                // Pixelate is handled differently, usually by scaling down and up
-                // But for simplicity in this loop we'll do a basic "posterize" feel
-                const blockSize = Math.max(1, Math.floor((255 - threshold) / 10));
-                for (let i = 0; i < data.length; i += 4) {
-                    data[i] = Math.floor(data[i] / (threshold / 2 + 1)) * (threshold / 2 + 1);
-                    data[i + 1] = Math.floor(data[i + 1] / (threshold / 2 + 1)) * (threshold / 2 + 1);
-                    data[i + 2] = Math.floor(data[i + 2] / (threshold / 2 + 1)) * (threshold / 2 + 1);
-                }
-            } else if (currentFilter === 'data') {
-                const fontSize = currentDensity;
-                ctx.font = `bold ${fontSize}px monospace`;
-                ctx.textBaseline = 'top';
-                ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg');
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = activePrimary;
-
-                const useAscii = asciiCheck.checked;
-                // Standard ASCII ramp from dark to light
-                const asciiChars = " .:-=+*#%@"; // 10 chars
-
-                for (let y = 0; y < canvas.height; y += fontSize) {
-                    for (let x = 0; x < canvas.width; x += fontSize) {
-                        const i = (Math.floor(y) * canvas.width + Math.floor(x)) * 4;
-                        const r = data[i]; const g = data[i + 1]; const b = data[i + 2];
-                        const avg = (r + g + b) / 3;
-
-                        let char = '';
-                        if (useAscii) {
-                            // Map 0-255 to 0-9
-                            const charIdx = Math.floor(avg / 25.5);
-                            char = asciiChars[Math.min(charIdx, asciiChars.length - 1)];
-                        } else {
-                            char = avg >= threshold ? '1' : '0';
-                        }
-
-                        ctx.fillText(char, x, y);
+                    for (let i = 0; i < data.length; i += 4) {
+                        const val = gray[i / 4];
+                        // Normalize 0-255 to 0-1 for coloring
+                        const norm = val / 255;
+                        data[i] = rVal * norm;
+                        data[i + 1] = gVal * norm;
+                        data[i + 2] = bVal * norm;
                     }
+                } else if (currentFilter === 'pixel') {
+                    // Pixelate is handled differently, usually by scaling down and up
+                    // But for simplicity in this loop we'll do a basic "posterize" feel
+                    const blockSize = Math.max(1, Math.floor((255 - threshold) / 10));
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.floor(data[i] / (threshold / 2 + 1)) * (threshold / 2 + 1);
+                        data[i + 1] = Math.floor(data[i + 1] / (threshold / 2 + 1)) * (threshold / 2 + 1);
+                        data[i + 2] = Math.floor(data[i + 2] / (threshold / 2 + 1)) * (threshold / 2 + 1);
+                    }
+                } else if (currentFilter === 'data') {
+                    const fontSize = currentDensity;
+                    ctx.font = `bold ${fontSize}px monospace`;
+                    ctx.textBaseline = 'top';
+                    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg');
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = activePrimary;
+
+                    const useAscii = asciiCheck.checked;
+                    // Standard ASCII ramp from dark to light
+                    const asciiChars = " .:-=+*#%@"; // 10 chars
+
+                    for (let y = 0; y < canvas.height; y += fontSize) {
+                        for (let x = 0; x < canvas.width; x += fontSize) {
+                            const i = (Math.floor(y) * canvas.width + Math.floor(x)) * 4;
+                            const r = data[i]; const g = data[i + 1]; const b = data[i + 2];
+                            const avg = (r + g + b) / 3;
+
+                            let char = '';
+                            if (useAscii) {
+                                // Map 0-255 to 0-9
+                                const charIdx = Math.floor(avg / 25.5);
+                                char = asciiChars[Math.min(charIdx, asciiChars.length - 1)];
+                            } else {
+                                char = avg >= threshold ? '1' : '0';
+                            }
+
+                            ctx.fillText(char, x, y);
+                        }
+                    }
+                    return;
                 }
-                return;
+
+            } catch (e) {
+                console.error("Error in processImage:", e);
+                // Optional: alert user or show error state on canvas
             }
-
-            ctx.putImageData(imageData, 0, 0);
         }
 
         function triggerGlitch() {
