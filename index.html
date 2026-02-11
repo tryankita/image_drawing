@@ -548,6 +548,38 @@
             display: none;
         }
 
+        .undo-redo-group {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .undo-redo-group button {
+            flex: 1;
+            padding: 0.7rem;
+            font-size: 0.85rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+        }
+
+        .undo-redo-group button:hover:not(:disabled) {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .undo-redo-group button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
         .control-group {
             display: flex;
             flex-direction: column;
@@ -1208,6 +1240,10 @@
                     </div>
                 </div>
 
+                <div class="undo-redo-group">
+                    <button id="undo-btn" disabled>↩ Undo</button>
+                    <button id="redo-btn" disabled>↪ Redo</button>
+                </div>
                 <button class="cta-button" id="glitch-btn"
                     style="width: 100%; margin-bottom: 0.5rem; background: #ef4444; border: none; color: white;">
                     ⚡ GLITCH EFFECT
@@ -1531,6 +1567,63 @@
         let currentDensity = 10;
         let isLive = false;
 
+        // Undo/Redo History System
+        const MAX_HISTORY = 20;
+        let undoStack = [];
+        let redoStack = [];
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
+
+        function saveCanvasState() {
+            if (canvas.width === 0 || canvas.height === 0) return;
+            const state = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            undoStack.push({ data: state, width: canvas.width, height: canvas.height });
+            if (undoStack.length > MAX_HISTORY) undoStack.shift();
+            redoStack = []; // Clear redo when new action happens
+            updateUndoRedoButtons();
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            // Save current state to redo stack
+            const currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            redoStack.push({ data: currentState, width: canvas.width, height: canvas.height });
+            // Restore previous state
+            const prev = undoStack.pop();
+            canvas.width = prev.width;
+            canvas.height = prev.height;
+            ctx.putImageData(prev.data, 0, 0);
+            updateUndoRedoButtons();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            // Save current state to undo stack
+            const currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            undoStack.push({ data: currentState, width: canvas.width, height: canvas.height });
+            // Restore redo state
+            const next = redoStack.pop();
+            canvas.width = next.width;
+            canvas.height = next.height;
+            ctx.putImageData(next.data, 0, 0);
+            updateUndoRedoButtons();
+        }
+
+        function updateUndoRedoButtons() {
+            undoBtn.disabled = undoStack.length === 0;
+            redoBtn.disabled = redoStack.length === 0;
+        }
+
+        undoBtn.addEventListener('click', () => {
+            playDigitalSound(400, 'sine', 0.05);
+            undo();
+        });
+
+        redoBtn.addEventListener('click', () => {
+            playDigitalSound(600, 'sine', 0.05);
+            redo();
+        });
+
         uploadTrigger.addEventListener('click', () => { playDigitalSound(880, 'sine', 0.05); imageInput.click(); });
         cameraTrigger.addEventListener('click', () => { playDigitalSound(660, 'square', 0.1); startCamera(); });
         copyBtn.addEventListener('click', () => { playTransmissionSound(); copyToClipboard(); });
@@ -1601,6 +1694,7 @@
         });
 
         glitchBtn.addEventListener('click', () => {
+            saveCanvasState();
             playDigitalSound(100, 'sawtooth', 0.2);
             playDigitalSound(800, 'sawtooth', 0.1);
             triggerGlitch();
@@ -1762,14 +1856,11 @@
         function triggerGlitch() {
             if (!originalImage && !isLive) return;
 
-            // Re-process from original source so repeated clicks don't compound
-            processImage();
-
             const intensity = 20;
             const h = canvas.height;
             const w = canvas.width;
 
-            // Capture clean state
+            // Capture current state
             const imageData = ctx.getImageData(0, 0, w, h);
             const data = imageData.data;
             const resultData = new Uint8ClampedArray(data);
