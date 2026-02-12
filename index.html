@@ -2053,6 +2053,8 @@
         // --- STEGANOGRAPHY FUNCTIONS ---
 
         function encodeLSB(message) {
+            if (!originalImage) return;
+
             // 1. Convert message to binary string
             // Header: 16 bits for length
             const binaryLength = message.length.toString(2).padStart(16, '0');
@@ -2064,8 +2066,10 @@
 
             const fullBinary = binaryLength + binaryMsg;
             const requiredPixels = fullBinary.length;
-            const w = canvas.width;
-            const h = canvas.height;
+
+            // Use original image dimensions
+            const w = originalImage.width;
+            const h = originalImage.height;
             const totalPixels = w * h;
 
             if (requiredPixels > totalPixels) {
@@ -2073,8 +2077,14 @@
                 return;
             }
 
-            // 2. Get image data
-            const imageData = ctx.getImageData(0, 0, w, h);
+            // 2. Get image data from original source
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.drawImage(originalImage, 0, 0);
+
+            const imageData = tCtx.getImageData(0, 0, w, h);
             const data = imageData.data;
 
             // 3. Embed bits into Blue channel LSB
@@ -2085,11 +2095,12 @@
             }
 
             // 4. Put data back and DOWNLOAD automatically (to save the secret)
-            ctx.putImageData(imageData, 0, 0);
+            // We use tempCanvas to get the data URL
+            tCtx.putImageData(imageData, 0, 0);
 
             const link = document.createElement('a');
             link.download = `secret-binary-${Date.now()}.png`;
-            link.href = canvas.toDataURL();
+            link.href = tempCanvas.toDataURL();
             link.click();
 
             alert("🔒 Message encoded! Image downloaded.\nDrag this image back to decode it.");
@@ -2097,9 +2108,20 @@
         }
 
         function decodeLSB() {
-            const w = canvas.width;
-            const h = canvas.height;
-            const imageData = ctx.getImageData(0, 0, w, h);
+            if (!originalImage) return null;
+
+            // Use original image dimensions
+            const w = originalImage.width;
+            const h = originalImage.height;
+
+            // Create a temporary canvas to read raw pixel data
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.drawImage(originalImage, 0, 0);
+
+            const imageData = tCtx.getImageData(0, 0, w, h);
             const data = imageData.data;
 
             // 1. Read Length Header (first 16 pixels)
