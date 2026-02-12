@@ -1867,14 +1867,55 @@
                     }
 
                 } else if (currentFilter === 'matrix') {
-                    // 4-Level Green Quantization
+                    // 4-Level Green Quantization with Dithering
+                    const useDither = ditherCheck.checked;
+                    let gray = new Float32Array(targetW * targetH);
+
+                    // 1. Grayscale
                     for (let i = 0; i < data.length; i += 4) {
-                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                        if (avg < threshold - 40) {
+                        gray[i / 4] = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    }
+
+                    // 2. Dither + Quantize
+                    for (let y = 0; y < targetH; y++) {
+                        for (let x = 0; x < targetW; x++) {
+                            const idx = y * targetW + x;
+                            let oldPixel = gray[idx];
+
+                            // Map to 4 levels: 0, 85, 170, 255
+                            // Based on threshold slightly shifted to center the range
+                            let newPixel = 0;
+                            if (useDither) {
+                                // Quantize to nearest level
+                                newPixel = Math.round(oldPixel / 85) * 85;
+                                if (newPixel > 255) newPixel = 255;
+
+                                gray[idx] = newPixel;
+                                const quantError = oldPixel - newPixel;
+
+                                if (x + 1 < targetW) gray[y * targetW + (x + 1)] += quantError * 7 / 16;
+                                if (x - 1 >= 0 && y + 1 < targetH) gray[(y + 1) * targetW + (x - 1)] += quantError * 3 / 16;
+                                if (y + 1 < targetH) gray[(y + 1) * targetW + x] += quantError * 5 / 16;
+                                if (x + 1 < targetW && y + 1 < targetH) gray[(y + 1) * targetW + (x + 1)] += quantError * 1 / 16;
+                            } else {
+                                // Hard thresholds
+                                if (oldPixel < threshold - 40) newPixel = 0;
+                                else if (oldPixel < threshold) newPixel = 85;
+                                else if (oldPixel < threshold + 40) newPixel = 170;
+                                else newPixel = 255;
+                                gray[idx] = newPixel;
+                            }
+                        }
+                    }
+
+                    // 3. Color Mapping
+                    for (let i = 0; i < data.length; i += 4) {
+                        const val = gray[i / 4];
+                        if (val <= 0) {
                             data[i] = 0; data[i + 1] = 10; data[i + 2] = 0; // Blackest
-                        } else if (avg < threshold) {
+                        } else if (val <= 85) {
                             data[i] = 0; data[i + 1] = 80; data[i + 2] = 10; // Dark
-                        } else if (avg < threshold + 40) {
+                        } else if (val <= 170) {
                             data[i] = 0; data[i + 1] = 180; data[i + 2] = 30; // Mid
                         } else {
                             data[i] = 180; data[i + 1] = 255; data[i + 2] = 180; // Bright
