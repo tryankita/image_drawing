@@ -1223,9 +1223,9 @@
                 <div class="control-group">
                     <div style="display: flex; justify-content: space-between;">
                         <span class="control-label">Intensity / Threshold</span>
-                        <span id="threshold-val" style="font-size: 0.8rem; font-family: monospace;">128</span>
+                        <span id="threshold-val" style="font-size: 0.8rem; font-family: monospace;">40</span>
                     </div>
-                    <input type="range" id="threshold-slider" min="0" max="255" value="128">
+                    <input type="range" id="threshold-slider" min="0" max="255" value="40">
 
                     <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                         <label class="toggle-control">
@@ -1810,6 +1810,10 @@
                 // Draw source scaled down
                 ctx.drawImage(source, 0, 0, targetW, targetH);
 
+                // DEBUG: Log first pixel to check if image is loaded/drawn correctly
+                const debugData = ctx.getImageData(0, 0, 1, 1).data;
+                console.log(`Processing Frame: ${targetW}x${targetH}, Sample Pixel: R=${debugData[0]} G=${debugData[1]} B=${debugData[2]} A=${debugData[3]}`);
+
                 const imageData = ctx.getImageData(0, 0, targetW, targetH);
                 const data = imageData.data;
                 const threshold = parseInt(thresholdSlider.value);
@@ -1853,6 +1857,7 @@
                         data[i] = rVal * norm;
                         data[i + 1] = gVal * norm;
                         data[i + 2] = bVal * norm;
+                        data[i + 3] = 255;
                     }
 
                 } else if (currentFilter === 'pixel') {
@@ -1863,6 +1868,7 @@
                         data[i] = Math.floor(data[i] / step) * step;
                         data[i + 1] = Math.floor(data[i + 1] / step) * step;
                         data[i + 2] = Math.floor(data[i + 2] / step) * step;
+                        data[i + 3] = 255;
                     }
 
                 } else if (currentFilter === 'matrix') {
@@ -1919,6 +1925,7 @@
                         } else {
                             data[i] = 180; data[i + 1] = 255; data[i + 2] = 180; // Bright
                         }
+                        data[i + 3] = 255; // Force Alpha Opaque
                     }
                 }
 
@@ -2091,6 +2098,7 @@
                 const pixelIdx = i * 4; // 4 channels per pixel
                 // Clear LSB of Blue (index 2)
                 data[pixelIdx + 2] = (data[pixelIdx + 2] & 0xFE) | parseInt(fullBinary[i]);
+                data[pixelIdx + 3] = 255; // Ensure opacity
             }
 
             // 4. Put data back and DOWNLOAD automatically (to save the secret)
